@@ -1,0 +1,15 @@
+name: IOC Dispatch
+
+on:
+  repository_dispatch:
+    types:
+      - soc-ioc-submit
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Display Payload
+        run: |
+          echo '${{ toJson(github.event.client_payload) }}'
