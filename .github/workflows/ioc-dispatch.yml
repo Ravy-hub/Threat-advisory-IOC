@@ -22,21 +22,48 @@ jobs:
           git config user.name "soc-ioc-bot"
           git config user.email "soc-ioc-bot@users.noreply.github.com"
 
-      - name: Create IOC CSV file
+      - name: Create branch and IOC CSV file
+        id: create_file
         run: |
-          mkdir -p iocs
           TS=$(date -u +"%Y%m%d-%H%M%S")
+          BRANCH="ioc-ingest-${TS}"
           FILE="iocs/ioc-${TS}.csv"
 
+          git checkout -b "$BRANCH"
+
+          mkdir -p iocs
           printf '%s\n' '${{ github.event.client_payload.ioc_csv }}' > "$FILE"
 
           echo "Created file: $FILE"
           cat "$FILE"
 
-          echo "file=$FILE" >> "$GITHUB_ENV"
+          git add "$FILE"
+          git commit -m "Add IOC CSV from Copilot Studio - ${TS}"
+          git push origin "$BRANCH"
 
-      - name: Commit IOC CSV
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        id: create_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git add "$file"
-          git commit -m "Add IOC CSV from Copilot Studio"
-          git push
+          PR_URL=$(gh pr create \
+            --title "SOC IOC ingest: ${{ github.event.client_payload.context_label }}" \
+            --body "Automated IOC submission from Copilot Studio.
+
+          Context label: ${{ github.event.client_payload.context_label }}
+          Submitted by: ${{ github.event.client_payload.submitted_by }}
+          Source: ${{ github.event.client_payload.source }}
+
+          IOC file: ${{ steps.create_file.outputs.file }}" \
+            --head "${{ steps.create_file.outputs.branch }}" \
+            --base main)
+
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Display PR URL
+        run: |
+          echo "Pull Request created:"
+          echo "${{ steps.create_pr.outputs.pr_url }}"
