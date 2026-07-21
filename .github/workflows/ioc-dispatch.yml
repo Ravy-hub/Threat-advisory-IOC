@@ -5,20 +5,38 @@ on:
     types:
       - soc-ioc-submit
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  test:
+  ingest-ioc:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Display Payload
-        run: |
-          echo '${{ toJson(github.event.client_payload) }}'
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Create IOC CSV
+      - name: Configure Git identity
+        run: |
+          git config user.name "soc-ioc-bot"
+          git config user.email "soc-ioc-bot@users.noreply.github.com"
+
+      - name: Create IOC CSV file
         run: |
           mkdir -p iocs
-          echo '${{ github.event.client_payload.ioc_csv }}' > iocs/test.csv
+          TS=$(date -u +"%Y%m%d-%H%M%S")
+          FILE="iocs/ioc-${TS}.csv"
 
-      - name: Display CSV
+          printf '%s\n' '${{ github.event.client_payload.ioc_csv }}' > "$FILE"
+
+          echo "Created file: $FILE"
+          cat "$FILE"
+
+          echo "file=$FILE" >> "$GITHUB_ENV"
+
+      - name: Commit IOC CSV
         run: |
-          cat iocs/test.csv
+          git add "$file"
+          git commit -m "Add IOC CSV from Copilot Studio"
+          git push
