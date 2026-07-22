@@ -29,6 +29,7 @@ jobs:
           BRANCH="ioc-ingest-${TS}"
           FILE="iocs/ioc-${TS}.csv"
 
+          echo "Creating branch: $BRANCH"
           git checkout -b "$BRANCH"
 
           mkdir -p iocs
@@ -37,8 +38,12 @@ jobs:
           echo "Created file: $FILE"
           cat "$FILE"
 
+          git status
+
           git add "$FILE"
           git commit -m "Add IOC CSV from Copilot Studio - ${TS}"
+
+          echo "Pushing branch: $BRANCH"
           git push origin "$BRANCH"
 
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
@@ -49,21 +54,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR_URL=$(gh pr create \
-            --title "SOC IOC ingest: ${{ github.event.client_payload.context_label }}" \
-            --body "Automated IOC submission from Copilot Studio.
+          cat > pr_body.md <<EOF
+          Automated IOC submission from Copilot Studio.
 
           Context label: ${{ github.event.client_payload.context_label }}
           Submitted by: ${{ github.event.client_payload.submitted_by }}
           Source: ${{ github.event.client_payload.source }}
 
-          IOC file: ${{ steps.create_file.outputs.file }}" \
+          IOC file: ${{ steps.create_file.outputs.file }}
+          EOF
+
+          PR_URL=$(gh pr create \
+            --title "SOC IOC ingest: ${{ github.event.client_payload.context_label }}" \
+            --body-file pr_body.md \
             --head "${{ steps.create_file.outputs.branch }}" \
             --base main)
 
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
 
-      - name: Display PR URL
+      - name: Display branch and PR URL
         run: |
-          echo "Pull Request created:"
-          echo "${{ steps.create_pr.outputs.pr_url }}"
+          echo "Branch created: ${{ steps.create_file.outputs.branch }}"
+          echo "IOC file: ${{ steps.create_file.outputs.file }}"
+          echo "Pull Request URL: ${{ steps.create_pr.outputs.pr_url }}"
